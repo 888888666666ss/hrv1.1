@@ -1,0 +1,69 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: hrms-postgres
+    environment:
+      POSTGRES_DB: hrms
+      POSTGRES_USER: hrms_user
+      POSTGRES_PASSWORD: hrms_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    networks:
+      - hrms-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: hrms-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - hrms-network
+
+  backend:
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: hrms-backend
+    ports:
+      - "8080:8080"
+    environment:
+      DB_USERNAME: hrms_user
+      DB_PASSWORD: hrms_pass
+      REDIS_HOST: redis
+      JWT_SECRET: hrms-production-jwt-secret-key
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - hrms-network
+    profiles:
+      - production
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: hrms-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - hrms-network
+    profiles:
+      - production
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  hrms-network:
+    driver: bridge
